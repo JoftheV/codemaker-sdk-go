@@ -1,0 +1,198 @@
+syntax = "proto3";
+package ai.codemaker.service;
+
+service CodemakerService {
+  rpc AssistantCompletion (AssistantCompletionRequest) returns (AssistantCompletionResponse);
+  rpc AssistantCodeCompletion (AssistantCodeCompletionRequest) returns (AssistantCodeCompletionResponse);
+  rpc Completion (CompletionRequest) returns (CompletionResponse);
+  rpc Process (ProcessRequest) returns (ProcessResponse);
+  rpc Predict (PredictRequest) returns (PredictResponse);
+  rpc DiscoverContext (DiscoverSourceContextRequest) returns (DiscoverSourceContextResponse);
+  rpc CreateContext (CreateSourceContextRequest) returns (CreateSourceContextResponse);
+  rpc RegisterContext (RegisterSourceContextRequest) returns (RegisterSourceContextResponse);
+  rpc ListModels (ListModelsRequest) returns (ListModelsResponse);
+}
+
+enum Mode {
+  CODE = 0;
+  INLINE_CODE = 1;
+  EDIT_CODE = 2;
+  DOCUMENT = 3;
+  FIX_SYNTAX = 4;
+}
+
+enum Language {
+  SQL = 0;
+  C = 1;
+  CPP = 3;
+  JAVA = 7;
+  PHP = 8;
+  JAVASCRIPT = 9;
+  CSHARP = 13;
+  GO = 18;
+  KOTLIN = 19;
+  TYPESCRIPT = 20;
+  RUST = 23;
+}
+
+enum Encoding {
+  NONE = 0;
+  GZIP = 1;
+}
+
+enum Modify {
+  UNMODIFIED = 0;
+  REPLACE = 1;
+}
+
+message Source {
+  bytes content = 1;
+  Encoding encoding = 2;
+  string checksum = 3;
+}
+
+message Input {
+  Source source = 1;
+}
+
+message Output {
+  Source source = 1;
+}
+
+message Metadata {
+  string path = 1;
+}
+
+message SourceContext {
+  Language language = 1;
+  Input input = 2;
+  Metadata metadata = 3;
+}
+
+message RequiredSourceContext {
+  string path = 1;
+}
+
+message CodeSnippetContext {
+  string language = 1;
+  string snippet = 2;
+  string relativePath = 3;
+  double score = 4;
+}
+
+message Model {
+  string id = 1;
+  string name = 2;
+}
+
+message ProcessOptions {
+  Modify modify = 1;
+  string codePath = 2;
+  string prompt = 3;
+  bool detectSyntaxErrors = 4;
+  string contextId = 5;
+  string model = 6;
+}
+
+message CompletionOptions {
+  string codePath = 1;
+  bool allowMultiLineAutocomplete = 2;
+  repeated CodeSnippetContext codeSnippetContexts = 3;
+  string contextId = 4;
+  string model = 5;
+}
+
+message AssistantCodeCompletionOptions {
+  string contextId = 1;
+  string model = 2;
+}
+
+message PredictionOptions {
+  string contextId = 1;
+  string model = 2;
+}
+
+message ProcessRequest {
+  Mode mode = 1;
+  Language language = 2;
+  Input input = 3;
+  ProcessOptions options = 4;
+}
+
+message ProcessResponse {
+  Output output = 1;
+}
+
+message AssistantCompletionRequest {
+  string message = 1;
+}
+
+message AssistantCompletionResponse {
+  string message = 1;
+}
+
+message AssistantCodeCompletionRequest {
+  string message = 1;
+  Language language = 2;
+  Input input = 3;
+  AssistantCodeCompletionOptions options = 4;
+}
+
+message AssistantCodeCompletionResponse {
+  string message = 1;
+  Output output = 2;
+}
+
+message CompletionRequest {
+  Language language = 1;
+  Input input = 2;
+  CompletionOptions options = 3;
+}
+
+message CompletionResponse {
+  Output output = 1;
+}
+
+message PredictRequest {
+  Language language = 1;
+  Input input = 2;
+  PredictionOptions options = 3;
+}
+
+message PredictResponse {
+
+}
+
+message DiscoverSourceContextRequest {
+  SourceContext context = 1;
+}
+
+message DiscoverSourceContextResponse {
+  repeated RequiredSourceContext contexts = 1;
+  bool requiresProcessing = 2;
+}
+
+message CreateSourceContextRequest {
+
+}
+
+message CreateSourceContextResponse {
+  string id = 1;
+}
+
+message RegisterSourceContextRequest {
+  string id = 1;
+  repeated SourceContext sourceContexts = 2;
+}
+
+message RegisterSourceContextResponse {
+
+}
+
+message ListModelsRequest {
+
+}
+
+message ListModelsResponse {
+  repeated Model models = 1;
+}
