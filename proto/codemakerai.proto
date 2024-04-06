@@ -1,5 +1,6 @@
 syntax = "proto3";
 package ai.codemaker.service;
+option go_package = "./stub";
 
 service CodemakerService {
   rpc AssistantCompletion (AssistantCompletionRequest) returns (AssistantCompletionResponse);

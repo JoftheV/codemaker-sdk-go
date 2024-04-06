@@ -2,11 +2,9 @@
 
 package client
 
-import "time"
-
 type Config struct {
-	ApiKey            string
-	Endpoint          *string
-	ConnectionTimeout *time.Duration
-	RequestTimeout    *time.Duration
+	ApiKey                        string
+	Endpoint                      *string
+	EnableCompression             *bool
+	MinimumCompressionPayloadSize *int
 }

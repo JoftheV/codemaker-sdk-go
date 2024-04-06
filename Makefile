@@ -1,5 +1,5 @@
 protoc:
-	protoc ./proto/service.proto --go_out=./ --go-grpc_out=./
+	protoc ./proto/codemakerai.proto --go_out=./ --go-grpc_out=./
 
 clean:
 	go clean

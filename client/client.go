@@ -4,208 +4,303 @@ package client
 
 import (
 	"bytes"
-	"encoding/json"
+	"compress/gzip"
+	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/codemakerai/codemaker-sdk-go/cert"
+	"github.com/codemakerai/codemaker-sdk-go/stub"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"io"
-	"net"
-	"net/http"
-	"strings"
-	"time"
+	"os"
 )
 
 const (
-	defaultConnectionTimeout = 5 * time.Second
-	defaultRequestTimeout    = 50 * time.Second
+	endpoint = "process.codemaker.ai:443"
 
-	endpointUrl = "https://api.codemaker.ai"
+	defaultEnableCompression             = true
+	defaultMinimumCompressionPayloadSize = 2048
 
-	headerAuthorization = "Authorization"
-	headerRequestId     = "X-Request-Id"
+	authorizationHeader = "Authorization"
+	bearerToken         = "Bearer %s"
 )
 
 type Client interface {
-	CreateProcess(request *CreateProcessRequest) (*CreateProcessResponse, error)
-	GetProcessStatus(request *GetProcessStatusRequest) (*GetProcessStatusResponse, error)
-	GetProcessOutput(request *GetProcessOutputRequest) (*GetProcessOutputResponse, error)
+	Process(ctx context.Context, request *ProcessRequest) (*ProcessResponse, error)
 }
 
-type HttpClient struct {
+type defaultClient struct {
 	Client
 	config Config
-	client *http.Client
+	client stub.CodemakerServiceClient
 }
 
-func NewClient(config Config) Client {
-	connectionTimeout := defaultConnectionTimeout
-	if config.ConnectionTimeout != nil && *config.ConnectionTimeout > 0 {
-		connectionTimeout = *config.ConnectionTimeout
+func loadTls() (*tls.Config, error) {
+	path := cert.Path("ca.pem")
+	ca, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read CA certificate %v", err)
 	}
 
-	requestTimeout := defaultRequestTimeout
-	if config.RequestTimeout != nil && *config.RequestTimeout > 0 {
-		requestTimeout = *config.RequestTimeout
+	certPool := x509.NewCertPool()
+	if !certPool.AppendCertsFromPEM(ca) {
+		return nil, fmt.Errorf("failed to add server CA's certificate")
 	}
 
-	return &HttpClient{
+	config := &tls.Config{
+		RootCAs: certPool,
+	}
+	return config, nil
+}
+
+func NewClient(config Config) (Client, error) {
+	e := endpoint
+	if config.Endpoint != nil {
+		e = *config.Endpoint
+	}
+
+	tls, err := loadTls()
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.NewClient(e, grpc.WithTransportCredentials(credentials.NewTLS(tls)))
+	if err != nil {
+		return nil, err
+	}
+
+	c := stub.NewCodemakerServiceClient(conn)
+
+	client := &defaultClient{
 		config: config,
-		client: &http.Client{
-			Transport: &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout: connectionTimeout,
-				}).DialContext,
-				TLSHandshakeTimeout: connectionTimeout,
-			},
-			Timeout: requestTimeout,
-		},
+		client: c,
 	}
+	return client, nil
 }
 
-func (c *HttpClient) CreateProcess(request *CreateProcessRequest) (*CreateProcessResponse, error) {
-	if request == nil {
-		request = &CreateProcessRequest{}
-	}
-
-	body, err := json.Marshal(request)
-	if err != nil {
-		return nil, NewClientErrorWithCause("failed to serialize request payload", err)
-	}
-
-	resp, err := c.doRequest(http.MethodPost, "/process", body)
-	if err != nil {
-		return nil, NewClientErrorWithCause("failed to make HTTP request", err)
-	}
-	defer resp.Body.Close()
-
-	if !c.isSuccess(resp) {
-		return nil, c.handleError(resp)
-	}
-
-	response, err := c.handleResponse(resp, &CreateProcessResponse{})
+func (c *defaultClient) Process(ctx context.Context, request *ProcessRequest) (*ProcessResponse, error) {
+	req, err := c.createProcessRequest(request)
 	if err != nil {
 		return nil, err
 	}
-	return response.(*CreateProcessResponse), nil
-}
 
-func (c *HttpClient) GetProcessStatus(request *GetProcessStatusRequest) (*GetProcessStatusResponse, error) {
-	if request == nil {
-		request = &GetProcessStatusRequest{}
-	}
-
-	body, err := json.Marshal(request)
-	if err != nil {
-		return nil, NewClientErrorWithCause("failed to serialize request payload", err)
-	}
-
-	resp, err := c.doRequest(http.MethodPost, "/process/status", body)
-	if err != nil {
-		return nil, NewClientErrorWithCause("failed to make HTTP request", err)
-	}
-	defer resp.Body.Close()
-
-	if !c.isSuccess(resp) {
-		return nil, c.handleError(resp)
-	}
-
-	response, err := c.handleResponse(resp, &GetProcessStatusResponse{})
+	resp, err := c.doProcess(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	return response.(*GetProcessStatusResponse), nil
+
+	return c.createProcessResponse(resp)
 }
 
-func (c *HttpClient) GetProcessOutput(request *GetProcessOutputRequest) (*GetProcessOutputResponse, error) {
-	if request == nil {
-		request = &GetProcessOutputRequest{}
-	}
-
-	body, err := json.Marshal(request)
-	if err != nil {
-		return nil, NewClientErrorWithCause("failed to serialize request payload", err)
-	}
-
-	resp, err := c.doRequest(http.MethodPost, "/process/output", body)
-	if err != nil {
-		return nil, NewClientErrorWithCause("failed to make HTTP request", err)
-	}
-	defer resp.Body.Close()
-
-	if !c.isSuccess(resp) {
-		return nil, c.handleError(resp)
-	}
-
-	response, err := c.handleResponse(resp, &GetProcessOutputResponse{})
+func (c *defaultClient) createProcessRequest(request *ProcessRequest) (*stub.ProcessRequest, error) {
+	input, err := c.createInput(request.Input)
 	if err != nil {
 		return nil, err
 	}
-	return response.(*GetProcessOutputResponse), nil
+
+	req := &stub.ProcessRequest{
+		Mode:     c.mapMode(request.Mode),
+		Language: c.mapLanguage(request.Language),
+		Input:    input,
+		Options:  c.createProcessOptions(request.Options),
+	}
+	return req, nil
 }
 
-func (c *HttpClient) isSuccess(resp *http.Response) bool {
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+func (c *defaultClient) doProcess(ctx context.Context, req *stub.ProcessRequest) (*stub.ProcessResponse, error) {
+	return c.client.Process(c.createMetadata(ctx), req)
 }
 
-func (c *HttpClient) doRequest(method string, path string, body []byte) (*http.Response, error) {
-	req, err := http.NewRequest(method, c.url(path), bytes.NewBuffer(body))
+func (c *defaultClient) createProcessResponse(resp *stub.ProcessResponse) (*ProcessResponse, error) {
+	source, err := c.decodeOutput(resp.Output.Source)
 	if err != nil {
-		return nil, NewClientErrorWithCause("failed to create HTTP request", err)
+		return nil, err
 	}
-	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("User-Agent", fmt.Sprintf("CodeMakerSdkGo/%s", Version))
-	req.Header.Add(headerAuthorization, fmt.Sprintf("Bearer %s", c.config.ApiKey))
 
-	resp, err := c.client.Do(req)
-	return resp, err
+	response := &ProcessResponse{
+		Source: source,
+	}
+	return response, nil
 }
 
-func (c *HttpClient) handleResponse(resp *http.Response, val interface{}) (interface{}, error) {
-	reader, err := io.ReadAll(resp.Body)
+func (c *defaultClient) createMetadata(ctx context.Context) context.Context {
+	md := metadata.Pairs(authorizationHeader, fmt.Sprintf(bearerToken, c.config.ApiKey))
+	return metadata.NewOutgoingContext(ctx, md)
+}
+
+func (c *defaultClient) createInput(input Input) (*stub.Input, error) {
+	encodedInput, err := c.encodeInput(input.Source)
 	if err != nil {
-		return nil, NewClientErrorWithCause("failed to read HTTP response", err)
+		return nil, err
 	}
 
-	err = json.Unmarshal(reader, val)
+	result := &stub.Input{
+		Source: encodedInput,
+	}
+	return result, nil
+}
+
+func (c *defaultClient) encodeInput(source string) (*stub.Source, error) {
+	encoding := stub.Encoding_NONE
+	input := []byte(source)
+	checksum := c.checksum(input)
+
+	if c.enableCompression() && len(input) >= c.minimumCompressionPayloadSize() {
+		encoding = stub.Encoding_GZIP
+		data, err := c.compress(input)
+		if err != nil {
+			return nil, err
+		}
+		input = data
+	}
+
+	s := &stub.Source{
+		Content:  input,
+		Encoding: encoding,
+		Checksum: checksum,
+	}
+	return s, nil
+}
+
+func (c *defaultClient) decodeOutput(source *stub.Source) (string, error) {
+	content := source.Content
+
+	if source.Encoding == stub.Encoding_GZIP {
+		data, err := c.decompress(content)
+		if err != nil {
+			return "", err
+		}
+		content = data
+	}
+
+	return string(content), nil
+}
+
+func (c *defaultClient) createProcessOptions(options *Options) *stub.ProcessOptions {
+	modify := stub.Modify_UNMODIFIED
+	if options.Modify != nil {
+		modify = c.mapModify(*options.Modify)
+	}
+
+	codePath := ""
+	if options.CodePath != nil {
+		codePath = *options.CodePath
+	}
+
+	model := ""
+	if options.Model != nil {
+		model = *options.Model
+	}
+
+	return &stub.ProcessOptions{
+		Modify:   modify,
+		CodePath: codePath,
+		Model:    model,
+	}
+}
+
+func (c *defaultClient) compress(output []byte) ([]byte, error) {
+	var buffer bytes.Buffer
+	writer := gzip.NewWriter(&buffer)
+
+	_, err := writer.Write(output)
 	if err != nil {
-		return nil, NewClientErrorWithCause("failed to parse HTTP response", err)
+		return nil, err
 	}
-	return val, nil
+
+	if err := writer.Flush(); err != nil {
+		return nil, err
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+
+	return buffer.Bytes(), nil
 }
 
-func (c *HttpClient) handleError(resp *http.Response) error {
-	var requestId = ""
-	if id, ok := resp.Header[headerRequestId]; ok {
-		requestId = id[0]
-	}
-	errorCode := c.tryUnmarshallError(resp)
-
-	return NewClientError(
-		fmt.Sprintf("(%s) request failed %d %s", requestId, resp.StatusCode, errorCode))
-}
-
-func (c *HttpClient) tryUnmarshallError(resp *http.Response) string {
-	reader, err := io.ReadAll(resp.Body)
+func (c *defaultClient) decompress(output []byte) ([]byte, error) {
+	data := bytes.NewReader(output)
+	reader, err := gzip.NewReader(data)
 	if err != nil {
-		return ""
+		return nil, err
 	}
 
-	result := &Error{}
-	err = json.Unmarshal(reader, result)
+	output, err = io.ReadAll(reader)
 	if err != nil {
-		return ""
+		return nil, err
 	}
-	return result.Code
+
+	return output, nil
 }
 
-func (c *HttpClient) endpoint() string {
-	if c.config.Endpoint != nil {
-		return *c.config.Endpoint
-	}
-	return endpointUrl
+func (c *defaultClient) checksum(source []byte) string {
+	sum := sha256.Sum256(source)
+	return fmt.Sprintf("%x", sum)
 }
 
-func (c *HttpClient) url(path string) string {
-	return fmt.Sprintf("%s/%s",
-		strings.TrimSuffix(c.endpoint(), "/"),
-		strings.TrimPrefix(path, "/"))
+func (c *defaultClient) enableCompression() bool {
+	if c.config.EnableCompression != nil {
+		return *c.config.EnableCompression
+	}
+	return defaultEnableCompression
+}
+
+func (c *defaultClient) minimumCompressionPayloadSize() int {
+	if c.config.MinimumCompressionPayloadSize != nil {
+		return *c.config.MinimumCompressionPayloadSize
+	}
+	return defaultMinimumCompressionPayloadSize
+}
+
+func (c *defaultClient) mapMode(mode string) stub.Mode {
+	switch mode {
+	case ModeCode:
+		return stub.Mode_CODE
+	case ModeDocument:
+		return stub.Mode_DOCUMENT
+	case ModeFixSyntax:
+		return stub.Mode_FIX_SYNTAX
+	}
+	panic(fmt.Sprintf("Unsupported mode %s", mode))
+}
+
+func (c *defaultClient) mapLanguage(language string) stub.Language {
+	switch language {
+	case LanguageC:
+		return stub.Language_C
+	case LanguageCPP:
+		return stub.Language_CPP
+	case LanguageJavaScript:
+		return stub.Language_JAVASCRIPT
+	case LanguagePHP:
+		return stub.Language_PHP
+	case LanguageJava:
+		return stub.Language_JAVA
+	case LanguageCSharp:
+		return stub.Language_CSHARP
+	case LanguageGo:
+		return stub.Language_GO
+	case LanguageKotlin:
+		return stub.Language_KOTLIN
+	case LanguageTypeScript:
+		return stub.Language_TYPESCRIPT
+	case LanguageRust:
+		return stub.Language_RUST
+	}
+	panic(fmt.Sprintf("Unsupported language %s", language))
+}
+
+func (c *defaultClient) mapModify(modify string) stub.Modify {
+	switch modify {
+	case ModifyNone:
+		return stub.Modify_UNMODIFIED
+	case ModifyReplace:
+		return stub.Modify_REPLACE
+	}
+	panic(fmt.Sprintf("Unsupported modify %s", modify))
 }
