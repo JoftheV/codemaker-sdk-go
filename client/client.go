@@ -16,7 +16,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"io"
-	"os"
 )
 
 const (
@@ -40,14 +39,8 @@ type defaultClient struct {
 }
 
 func loadTls() (*tls.Config, error) {
-	path := cert.Path("ca.pem")
-	ca, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CA certificate %v", err)
-	}
-
 	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(ca) {
+	if !certPool.AppendCertsFromPEM(cert.CA()) {
 		return nil, fmt.Errorf("failed to add server CA's certificate")
 	}
 
