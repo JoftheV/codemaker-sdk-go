@@ -7,4 +7,5 @@ type Config struct {
 	Endpoint                      *string
 	EnableCompression             *bool
 	MinimumCompressionPayloadSize *int
+	MaxRetries                    *int
 }

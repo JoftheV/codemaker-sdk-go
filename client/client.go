@@ -13,8 +13,10 @@ import (
 	"github.com/codemakerai/codemaker-sdk-go/cert"
 	"github.com/codemakerai/codemaker-sdk-go/stub"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	"io"
 )
 
@@ -26,6 +28,8 @@ const (
 
 	authorizationHeader = "Authorization"
 	bearerToken         = "Bearer %s"
+
+	defaultMaxRetries = 5
 )
 
 type Client interface {
@@ -105,7 +109,20 @@ func (c *defaultClient) createProcessRequest(request *ProcessRequest) (*stub.Pro
 }
 
 func (c *defaultClient) doProcess(ctx context.Context, req *stub.ProcessRequest) (*stub.ProcessResponse, error) {
-	return c.client.Process(c.createMetadata(ctx), req)
+	maxRetries := c.maxRetries()
+	var lastError error
+	for retry := 0; retry < maxRetries; retry++ {
+		resp, err := c.client.Process(c.createMetadata(ctx), req)
+		if err == nil {
+			return resp, err
+		} else if status.Code(err) == codes.DeadlineExceeded {
+			lastError = err
+		} else {
+			return resp, err
+		}
+	}
+
+	return nil, fmt.Errorf("error invoking CodeMaker AI API", lastError)
 }
 
 func (c *defaultClient) createProcessResponse(resp *stub.ProcessResponse) (*ProcessResponse, error) {
@@ -248,6 +265,13 @@ func (c *defaultClient) minimumCompressionPayloadSize() int {
 		return *c.config.MinimumCompressionPayloadSize
 	}
 	return defaultMinimumCompressionPayloadSize
+}
+
+func (c *defaultClient) maxRetries() int {
+	if c.config.MaxRetries != nil {
+		return *c.config.MaxRetries
+	}
+	return defaultMaxRetries
 }
 
 func (c *defaultClient) mapMode(mode string) stub.Mode {
