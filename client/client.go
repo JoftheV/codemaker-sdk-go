@@ -206,10 +206,28 @@ func (c *defaultClient) createProcessOptions(options *Options) *stub.ProcessOpti
 		model = *options.Model
 	}
 
+	var overrideIndent int32 = 0
+	if options.OverrideIndent != nil {
+		overrideIndent = *options.OverrideIndent
+	}
+
+	var minimalLinesLength int32 = 0
+	if options.MinimalLinesLength != nil {
+		minimalLinesLength = *options.MinimalLinesLength
+	}
+
+	visibility := stub.Visibility_ALL
+	if options.Visibility != nil {
+		visibility = c.mapVisibility(*options.Visibility)
+	}
+
 	return &stub.ProcessOptions{
-		Modify:   modify,
-		CodePath: codePath,
-		Model:    model,
+		Modify:             modify,
+		CodePath:           codePath,
+		Model:              model,
+		OverrideIndent:     overrideIndent,
+		MinimalLinesLength: minimalLinesLength,
+		Visibility:         visibility,
 	}
 }
 
@@ -320,4 +338,14 @@ func (c *defaultClient) mapModify(modify string) stub.Modify {
 		return stub.Modify_REPLACE
 	}
 	panic(fmt.Sprintf("Unsupported modify %s", modify))
+}
+
+func (c *defaultClient) mapVisibility(visibility string) stub.Visibility {
+	switch visibility {
+	case VisibilityAll:
+		return stub.Visibility_ALL
+	case VisibilityPubic:
+		return stub.Visibility_PUBLIC
+	}
+	panic(fmt.Sprintf("Unsupported visibility %s", visibility))
 }
