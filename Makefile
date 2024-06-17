@@ -5,8 +5,11 @@ clean:
 	go clean
 	rm -f ./codemaker-sdk-go
 
+compile:
+	go build ./...
+
 test:
 	go test ./...
 
-build: clean protoc test
+build: clean protoc compile test
 	@:
