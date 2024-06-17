@@ -1,3 +1,6 @@
+all: build
+	@:
+
 protoc:
 	protoc ./proto/codemakerai.proto --go_out=./ --go-grpc_out=./
 
