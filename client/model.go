@@ -37,6 +37,11 @@ const (
 	ModifyReplace = "REPLACE"
 )
 
+const (
+	VisibilityAll   = "ALL"
+	VisibilityPubic = "PUBLIC"
+)
+
 type ProcessRequest struct {
 	Mode     string   `json:"mode"`
 	Language string   `json:"language"`
@@ -53,12 +58,15 @@ type Input struct {
 }
 
 type Options struct {
-	LanguageVersion *string `json:"languageVersion"`
-	Framework       *string `json:"framework"`
-	Modify          *string `json:"modify"`
-	CodePath        *string `json:"codePath"`
-	ContextId       *string `json:"contextId"`
-	Model           *string `json:"model"`
+	LanguageVersion    *string `json:"languageVersion"`
+	Framework          *string `json:"framework"`
+	Modify             *string `json:"modify"`
+	CodePath           *string `json:"codePath"`
+	ContextId          *string `json:"contextId"`
+	Model              *string `json:"model"`
+	OverrideIndent     *int32  `json:"overrideIndent"`
+	MinimalLinesLength *int32  `json:"minimalLinesLength"`
+	Visibility         *string `json:"visibility"`
 }
 
 type Output struct {
