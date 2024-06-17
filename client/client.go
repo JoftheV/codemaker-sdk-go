@@ -122,7 +122,7 @@ func (c *defaultClient) doProcess(ctx context.Context, req *stub.ProcessRequest)
 		}
 	}
 
-	return nil, fmt.Errorf("error invoking CodeMaker AI API", lastError)
+	return nil, fmt.Errorf("error invoking CodeMaker AI API %v", lastError)
 }
 
 func (c *defaultClient) createProcessResponse(resp *stub.ProcessResponse) (*ProcessResponse, error) {
