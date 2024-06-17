@@ -17,8 +17,10 @@ jobs:
         with:
           go-version: stable
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@v3
-
       - name: Build
-        run: make build
+        run: go build -v ./...
+        working-directory: client
+
+      - name: Test
+        run: go test -v ./...
+        working-directory: client
