@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type CodemakerServiceClient interface {
 	AssistantCompletion(ctx context.Context, in *AssistantCompletionRequest, opts ...grpc.CallOption) (*AssistantCompletionResponse, error)
 	AssistantCodeCompletion(ctx context.Context, in *AssistantCodeCompletionRequest, opts ...grpc.CallOption) (*AssistantCodeCompletionResponse, error)
+	RegisterAssistantFeedback(ctx context.Context, in *RegisterAssistantFeedbackRequest, opts ...grpc.CallOption) (*RegisterAssistantFeedbackResponse, error)
 	Completion(ctx context.Context, in *CompletionRequest, opts ...grpc.CallOption) (*CompletionResponse, error)
 	Process(ctx context.Context, in *ProcessRequest, opts ...grpc.CallOption) (*ProcessResponse, error)
 	Predict(ctx context.Context, in *PredictRequest, opts ...grpc.CallOption) (*PredictResponse, error)
@@ -53,6 +54,15 @@ func (c *codemakerServiceClient) AssistantCompletion(ctx context.Context, in *As
 func (c *codemakerServiceClient) AssistantCodeCompletion(ctx context.Context, in *AssistantCodeCompletionRequest, opts ...grpc.CallOption) (*AssistantCodeCompletionResponse, error) {
 	out := new(AssistantCodeCompletionResponse)
 	err := c.cc.Invoke(ctx, "/ai.codemaker.service.CodemakerService/AssistantCodeCompletion", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *codemakerServiceClient) RegisterAssistantFeedback(ctx context.Context, in *RegisterAssistantFeedbackRequest, opts ...grpc.CallOption) (*RegisterAssistantFeedbackResponse, error) {
+	out := new(RegisterAssistantFeedbackResponse)
+	err := c.cc.Invoke(ctx, "/ai.codemaker.service.CodemakerService/RegisterAssistantFeedback", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +138,7 @@ func (c *codemakerServiceClient) ListModels(ctx context.Context, in *ListModelsR
 type CodemakerServiceServer interface {
 	AssistantCompletion(context.Context, *AssistantCompletionRequest) (*AssistantCompletionResponse, error)
 	AssistantCodeCompletion(context.Context, *AssistantCodeCompletionRequest) (*AssistantCodeCompletionResponse, error)
+	RegisterAssistantFeedback(context.Context, *RegisterAssistantFeedbackRequest) (*RegisterAssistantFeedbackResponse, error)
 	Completion(context.Context, *CompletionRequest) (*CompletionResponse, error)
 	Process(context.Context, *ProcessRequest) (*ProcessResponse, error)
 	Predict(context.Context, *PredictRequest) (*PredictResponse, error)
@@ -147,6 +158,9 @@ func (UnimplementedCodemakerServiceServer) AssistantCompletion(context.Context, 
 }
 func (UnimplementedCodemakerServiceServer) AssistantCodeCompletion(context.Context, *AssistantCodeCompletionRequest) (*AssistantCodeCompletionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AssistantCodeCompletion not implemented")
+}
+func (UnimplementedCodemakerServiceServer) RegisterAssistantFeedback(context.Context, *RegisterAssistantFeedbackRequest) (*RegisterAssistantFeedbackResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterAssistantFeedback not implemented")
 }
 func (UnimplementedCodemakerServiceServer) Completion(context.Context, *CompletionRequest) (*CompletionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Completion not implemented")
@@ -214,6 +228,24 @@ func _CodemakerService_AssistantCodeCompletion_Handler(srv interface{}, ctx cont
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(CodemakerServiceServer).AssistantCodeCompletion(ctx, req.(*AssistantCodeCompletionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CodemakerService_RegisterAssistantFeedback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterAssistantFeedbackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CodemakerServiceServer).RegisterAssistantFeedback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/ai.codemaker.service.CodemakerService/RegisterAssistantFeedback",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CodemakerServiceServer).RegisterAssistantFeedback(ctx, req.(*RegisterAssistantFeedbackRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -358,6 +390,10 @@ var CodemakerService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "AssistantCodeCompletion",
 			Handler:    _CodemakerService_AssistantCodeCompletion_Handler,
+		},
+		{
+			MethodName: "RegisterAssistantFeedback",
+			Handler:    _CodemakerService_RegisterAssistantFeedback_Handler,
 		},
 		{
 			MethodName: "Completion",
