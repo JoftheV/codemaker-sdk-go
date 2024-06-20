@@ -5,6 +5,7 @@ option go_package = "./stub";
 service CodemakerService {
   rpc AssistantCompletion (AssistantCompletionRequest) returns (AssistantCompletionResponse);
   rpc AssistantCodeCompletion (AssistantCodeCompletionRequest) returns (AssistantCodeCompletionResponse);
+  rpc AssistantSpeech (AssistantSpeechRequest) returns (AssistantSpeechResponse);
   rpc RegisterAssistantFeedback (RegisterAssistantFeedbackRequest) returns (RegisterAssistantFeedbackResponse);
   rpc Completion (CompletionRequest) returns (CompletionResponse);
   rpc Process (ProcessRequest) returns (ProcessResponse);
@@ -162,6 +163,14 @@ message AssistantCodeCompletionRequest {
   Language language = 2;
   Input input = 3;
   AssistantCodeCompletionOptions options = 4;
+}
+
+message AssistantSpeechRequest {
+  string message = 1;
+}
+
+message AssistantSpeechResponse {
+  bytes audio = 1;
 }
 
 message AssistantCodeCompletionResponse {
