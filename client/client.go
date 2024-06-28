@@ -310,6 +310,8 @@ func (c *defaultClient) mapLanguage(language string) stub.Language {
 		return stub.Language_C
 	case LanguageCPP:
 		return stub.Language_CPP
+	case LanguagePython:
+		return stub.Language_PYTHON
 	case LanguageJavaScript:
 		return stub.Language_JAVASCRIPT
 	case LanguagePHP:
