@@ -22,6 +22,7 @@ const (
 const (
 	LanguageC          = "C"
 	LanguageCPP        = "CPP"
+	LanguagePython     = "PYTHON"
 	LanguageJavaScript = "JAVASCRIPT"
 	LanguagePHP        = "PHP"
 	LanguageJava       = "JAVA"
