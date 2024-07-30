@@ -99,11 +99,19 @@ func (c *defaultClient) createProcessRequest(request *ProcessRequest) (*stub.Pro
 		return nil, err
 	}
 
+	var path = ""
+	if request.Path != nil {
+		path = *request.Path
+	}
+
 	req := &stub.ProcessRequest{
 		Mode:     c.mapMode(request.Mode),
 		Language: c.mapLanguage(request.Language),
 		Input:    input,
 		Options:  c.createProcessOptions(request.Options),
+		Metadata: &stub.Metadata{
+			Path: path,
+		},
 	}
 	return req, nil
 }

@@ -47,6 +47,7 @@ type ProcessRequest struct {
 	Mode     string   `json:"mode"`
 	Language string   `json:"language"`
 	Input    Input    `json:"input"`
+	Path     *string  `json:"path"`
 	Options  *Options `json:"options"`
 }
 
