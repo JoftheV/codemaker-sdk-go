@@ -1,6 +1,7 @@
 module github.com/codemakerai/codemaker-sdk-go
 
 go 1.21
+toolchain go1.24.1
 
 require (
 	google.golang.org/grpc v1.64.0
@@ -8,8 +9,8 @@ require (
 )
 
 require (
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240429193739-8cf5692501f6 // indirect
 )
